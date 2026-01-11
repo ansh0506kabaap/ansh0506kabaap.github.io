@@ -53,24 +53,32 @@
 
     // 2. Bluetooth Connection
     connectBtn.addEventListener('click', async () => {
-        try {
-            statusDiv.innerText = "Status: Searching...";
-            const device = await navigator.bluetooth.requestDevice({
-                acceptAllDevices: true,
-                optionalServices: [SERVICE_UUID]
-            });
+    try {
+        statusDiv.innerText = "Status: Searching...";
+        const device = await navigator.bluetooth.requestDevice({
+            filters: [{ name: 'ESP32-WarMapper' }],
+            optionalServices: [SERVICE_UUID]
+        });
+
+            statusDiv.innerText = "Status: Found! Connecting to GATT...";
             const server = await device.gatt.connect();
+
+            statusDiv.innerText = "Status: Discovering Service...";
             const service = await server.getPrimaryService(SERVICE_UUID);
+
+            statusDiv.innerText = "Status: Getting Characteristic...";
             const characteristic = await service.getCharacteristic(CHAR_UUID);
 
+            statusDiv.innerText = "Status: Starting Notifications...";
             await characteristic.startNotifications();
-            statusDiv.innerText = "Status: Connected!";
+        
+            statusDiv.innerText = "Status: Fully Synced!"; // Only now is it "Connected"
             connectBtn.disabled = true;
 
             characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
         } catch (error) {
             statusDiv.innerText = "Status: Error - " + error;
-            console.error(error);
+            console.error("Full Error Info:", error);
         }
     });
 
