@@ -56,7 +56,7 @@
     try {
         statusDiv.innerText = "Status: Searching...";
         const device = await navigator.bluetooth.requestDevice({
-            filters: [{ name: 'ESP32-WarMapper' }],
+            acceptAllDevices: true,
             optionalServices: [SERVICE_UUID]
         });
 
