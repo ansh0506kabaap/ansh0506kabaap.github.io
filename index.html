@@ -1,5 +1,116 @@
-<html>
-  <body>
-    Hello World
-  </body>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WiFi Warmapper</title>
+    <style>
+        body { font-family: -apple-system, system-ui, sans-serif; padding: 20px; background: #f0f2f5; }
+        .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button { background: #007bff; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-size: 16px; width: 100%; margin-bottom: 10px; cursor: pointer; }
+        button:disabled { background: #ccc; }
+        #downloadBtn { background: #28a745; }
+        #log { margin-top: 20px; max-height: 300px; overflow-y: auto; background: #eee; padding: 10px; font-size: 12px; border-radius: 5px; }
+        .status { margin-bottom: 15px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>WiFi Warmapper</h2>
+    <div class="status" id="status">Status: Disconnected</div>
+    <div class="status" id="coords">GPS: Awaiting location...</div>
+    
+    <button id="connectBtn">Connect ESP32</button>
+    <button id="downloadBtn" disabled>Download CSV</button>
+
+    <div id="log">Logs will appear here...</div>
+</div>
+
+<script>
+    const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+    const CHAR_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+
+    let capturedData = [];
+    let currentCoords = { lat: null, lng: null };
+
+    const connectBtn = document.getElementById('connectBtn');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const statusDiv = document.getElementById('status');
+    const coordsDiv = document.getElementById('coords');
+    const logDiv = document.getElementById('log');
+
+    // 1. Watch Geolocation
+    if ("geolocation" in navigator) {
+        navigator.geolocation.watchPosition((pos) => {
+            currentCoords.lat = pos.coords.latitude;
+            currentCoords.lng = pos.coords.longitude;
+            coordsDiv.innerText = `GPS: ${currentCoords.lat.toFixed(5)}, ${currentCoords.lng.toFixed(5)}`;
+        }, (err) => {
+            coordsDiv.innerText = "GPS Error: " + err.message;
+        }, { enableHighAccuracy: true });
+    }
+
+    // 2. Bluetooth Connection
+    connectBtn.addEventListener('click', async () => {
+        try {
+            statusDiv.innerText = "Status: Searching...";
+            const device = await navigator.bluetooth.requestDevice({
+                filters: [{ name: 'ESP32-WarMapper' }],
+                optionalServices: [SERVICE_UUID]
+            });
+
+            const server = await device.gatt.connect();
+            const service = await server.getPrimaryService(SERVICE_UUID);
+            const characteristic = await service.getCharacteristic(CHAR_UUID);
+
+            await characteristic.startNotifications();
+            statusDiv.innerText = "Status: Connected!";
+            connectBtn.disabled = true;
+
+            characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+        } catch (error) {
+            statusDiv.innerText = "Status: Error - " + error;
+            console.error(error);
+        }
+    });
+
+    function handleNotifications(event) {
+        const value = new TextDecoder().decode(event.target.value);
+        const timestamp = new Date().toISOString();
+        
+        if (currentCoords.lat && currentCoords.lng) {
+            const entry = {
+                timestamp,
+                lat: currentCoords.lat,
+                lng: currentCoords.lng,
+                wifiData: value
+            };
+            capturedData.push(entry);
+            downloadBtn.disabled = false;
+
+            // Update UI Log
+            const newLog = document.createElement('div');
+            newLog.innerText = `[${timestamp.split('T')[1].split('.')[0]}] ${value}`;
+            logDiv.prepend(newLog);
+        }
+    }
+
+    // 3. CSV Export
+    downloadBtn.addEventListener('click', () => {
+        let csvContent = "data:text/csv;charset=utf-8,Timestamp,Latitude,Longitude,SSID,RSSI\n";
+        capturedData.forEach(row => {
+            csvContent += `${row.timestamp},${row.lat},${row.lng},${row.wifiData}\n`;
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", "warmapper_data.csv");
+        document.body.appendChild(link);
+        link.click();
+    });
+</script>
+
+</body>
 </html>
