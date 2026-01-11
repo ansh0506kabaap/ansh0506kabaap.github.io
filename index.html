@@ -28,9 +28,6 @@
 </div>
 
 <script>
-    const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
-    const CHAR_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
-
     let capturedData = [];
     let currentCoords = { lat: null, lng: null };
 
@@ -52,33 +49,71 @@
     }
 
     // 2. Bluetooth Connection
+    // connectBtn.addEventListener('click', async () => {
+    // try {
+    //     statusDiv.innerText = "Status: Searching...";
+    //     const device = await navigator.bluetooth.requestDevice({
+    //         acceptAllDevices: true,
+    //         optionalServices: [SERVICE_UUID]
+    //     });
+
+    //         statusDiv.innerText = "Status: Found! Connecting to GATT...";
+    //         const server = await device.gatt.connect();
+
+    //         statusDiv.innerText = "Status: Discovering Service...";
+    //         const service = await server.getPrimaryService(SERVICE_UUID);
+
+    //         statusDiv.innerText = "Status: Getting Characteristic...";
+    //         const characteristic = await service.getCharacteristic(CHAR_UUID);
+
+    //         statusDiv.innerText = "Status: Starting Notifications...";
+    //         await characteristic.startNotifications();
+        
+    //         statusDiv.innerText = "Status: Fully Synced!"; // Only now is it "Connected"
+    //         connectBtn.disabled = true;
+
+    //         characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+    //     } catch (error) {
+    //         statusDiv.innerText = "Status: Error - " + error;
+    //         console.error("Full Error Info:", error);
+    //     }
+    // });
+    // Ensure these match your Arduino code EXACTLY
+    const SERVICE_UUID = "4fafc201-1fb5-459e-8fcc-c5c9c331914b";
+    const CHAR_UUID = "beb5483e-36e1-4688-b7f5-ea07361b26a8";
+    
     connectBtn.addEventListener('click', async () => {
-    try {
-        statusDiv.innerText = "Status: Searching...";
-        const device = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: [SERVICE_UUID]
-        });
-
-            statusDiv.innerText = "Status: Found! Connecting to GATT...";
+        try {
+            statusDiv.innerText = "Status: Requesting Device...";
+            const device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: [SERVICE_UUID]
+            });
+    
+            statusDiv.innerText = "Status: Connecting to GATT...";
             const server = await device.gatt.connect();
-
+    
             statusDiv.innerText = "Status: Discovering Service...";
             const service = await server.getPrimaryService(SERVICE_UUID);
-
+    
             statusDiv.innerText = "Status: Getting Characteristic...";
             const characteristic = await service.getCharacteristic(CHAR_UUID);
-
+    
             statusDiv.innerText = "Status: Starting Notifications...";
             await characteristic.startNotifications();
-        
-            statusDiv.innerText = "Status: Fully Synced!"; // Only now is it "Connected"
+    
+            statusDiv.innerText = "Status: FULLY CONNECTED";
             connectBtn.disabled = true;
-
-            characteristic.addEventListener('characteristicvaluechanged', handleNotifications);
+    
+            characteristic.addEventListener('characteristicvaluechanged', (event) => {
+                const value = new TextDecoder().decode(event.target.value);
+                logDiv.prepend(document.createElement('div').innerText = `Recv: ${value}`);
+                handleNotifications(event);
+            });
+    
         } catch (error) {
-            statusDiv.innerText = "Status: Error - " + error;
-            console.error("Full Error Info:", error);
+            statusDiv.innerText = "Status: ERROR -> " + error.message;
+            console.error("Connection Failed:", error);
         }
     });
 
